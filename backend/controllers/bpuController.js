@@ -2,17 +2,19 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 
+// Dossier d'upload configurable via .env
 const UPLOADS_DIR = process.env.UPLOADS_DIR || 'uploads';
+// Chemin du fichier d'historique
 const HISTORY_FILE = path.join(__dirname, `../${UPLOADS_DIR}/history.json`);
 
-// Fonction utilitaire pour générer un nom de fichier JSON unique
+// Génération du nom de fichier JSON unique basé sur le nom du fichier Excel et la date/heure
 function makeJsonFilename(originalName) {
   const base = path.parse(originalName).name;
   const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
   return `${base}_${timestamp}.json`;
 }
 
-// Fonction utilitaire pour mettre à jour l'historique
+// Mise à jour l'historique des fichiers analysés (ajoute une entrée en début de liste)
 function updateHistory(entry) {
   let history = [];
   if (fs.existsSync(HISTORY_FILE)) {
@@ -22,20 +24,23 @@ function updateHistory(entry) {
       history = [];
     }
   }
-  history.unshift(entry); // Ajoute en début de liste (plus récent d'abord)
+  history.unshift(entry); // Plus récent d'abord
   fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), { encoding: 'utf-8' });
 }
 
+// Route POST /upload : reçoit un fichier Excel, appelle le script Python, sauvegarde le JSON et l'historique
 exports.uploadAndParse = (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'Aucun fichier envoyé.' });
   }
   console.log('NOUVEL UPLOAD:', req.file.path);
+  // Appel du script Python pour parser le fichier Excel
   const python = spawn('python', [
     path.join(__dirname, '../../python-script/parser.py'),
     req.file.path
   ]);
   let data = '';
+  // récupération de la sortie du script Python (le JSON extrait)
   python.stdout.on('data', (chunk) => {
     data += chunk;
   });
@@ -47,9 +52,9 @@ exports.uploadAndParse = (req, res) => {
       return res.status(500).json({ error: 'Erreur lors du parsing Python.' });
     }
     try {
-      // On parse le JSON pour vérifier qu'il est valide et compter les lignes
+      //parse du  JSON pour vérifier qu'il est valide et compter les lignes
       const jsonData = JSON.parse(data);
-      // Génère un nom de fichier unique pour ce JSON
+      // Génèration du nom de fichier unique pour ce JSON
       const jsonFilename = makeJsonFilename(req.file.originalname);
       const jsonPath = path.join(__dirname, `../${UPLOADS_DIR}/${jsonFilename}`);
       // Sauvegarde le JSON généré
@@ -61,7 +66,7 @@ exports.uploadAndParse = (req, res) => {
         date: new Date().toISOString(),
         rows: Array.isArray(jsonData) ? jsonData.length : 0
       });
-      // Pour compatibilité, on continue de mettre à jour last_data.json
+      // mise à jour last_data.json (dernier résultat)  
       fs.writeFileSync(path.join(__dirname, `../${UPLOADS_DIR}/last_data.json`), data, { encoding: 'utf-8' });
       console.log('last_data.json et historique mis à jour, taille:', data.length, 'octets');
       res.json({ message: 'Fichier uploadé et analysé avec succès.' });
@@ -72,7 +77,7 @@ exports.uploadAndParse = (req, res) => {
   });
 };
 
-// Route pour lister l'historique des fichiers analysés
+// Route GET /history : retourne la liste des fichiers analysés
 exports.getHistory = (req, res) => {
   if (!fs.existsSync(HISTORY_FILE)) {
     return res.json([]);
@@ -85,7 +90,7 @@ exports.getHistory = (req, res) => {
   }
 };
 
-// Route pour télécharger un JSON précis de l'historique
+// Route GET /download-json/:filename : permet de télécharger un JSON précis de l'historique
 exports.downloadHistoryJson = (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(__dirname, `../${UPLOADS_DIR}/${filename}`);
@@ -95,6 +100,7 @@ exports.downloadHistoryJson = (req, res) => {
   res.download(filePath, filename);
 };
 
+// Route GET /data : retourne les données extraites du dernier fichier analysé
 exports.getData = (req, res) => {
   const dataPath = path.join(__dirname, `../${UPLOADS_DIR}/last_data.json`);
   if (!fs.existsSync(dataPath)) {
@@ -104,6 +110,7 @@ exports.getData = (req, res) => {
   res.json(JSON.parse(jsonData));
 };
 
+// Route GET /download-json : permet de télécharger le dernier JSON généré
 exports.downloadJson = (req, res) => {
   const dataPath = path.join(__dirname, `../${UPLOADS_DIR}/last_data.json`);
   if (!fs.existsSync(dataPath)) {

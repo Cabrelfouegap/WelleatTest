@@ -23,7 +23,7 @@ COLUMNS = [
     "PRIX TOTAL H.T"
 ]
 
-# On compile les patterns pour matcher les titres même s'ils ne sont pas strictement identiques
+# compilation des patterns pour matcher les titres même s'ils ne sont pas strictement identiques
 COLUMN_PATTERNS = [re.compile(re.escape(col), re.IGNORECASE) for col in COLUMNS]
 
 def find_header_row(file_path):
@@ -34,14 +34,14 @@ def find_header_row(file_path):
     """
     max_lines = 0
     try:
-        # On lit le fichier sans header pour compter le nombre de lignes
+        # Lecture du  fichier sans header pour compter le nombre de lignes
         tmp = pd.read_excel(file_path, header=None)
         max_lines = len(tmp)
     except Exception:
         pass
     for i in range(min(15, max_lines)):
         try:
-            # On lit la ligne i comme en-tête
+            # lecture la ligne i comme en-tête
             df = pd.read_excel(file_path, header=i, nrows=1)
         except Exception:
             continue

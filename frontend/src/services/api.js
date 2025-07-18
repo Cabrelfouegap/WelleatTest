@@ -22,5 +22,5 @@ export const fetchHistory = async () => {
   return res.json();
 };
 
-// Génère l'URL de téléchargement d'un JSON précis
+// Génération  l'URL de téléchargement d'un JSON précis
 export const getDownloadUrl = (filename) => `${API_URL}/download-json/${filename}`; 
